@@ -1,27 +1,26 @@
 # Rascunho do post para o LinkedIn
 
-> Escrito para: pessoas da rede no LinkedIn (recrutadores e devs Salesforce), em tom de portfólio.
+> Escrito para: pessoas da rede no LinkedIn (desenvolvedores Salesforce).
 
 ---
 
-Construí uma biblioteca de Invocable Actions para Flow, com seis ações que resolvem tarefas que aparecem em quase todo processo de cadastro no Brasil.
+Fiz uma biblioteca de Invocable Actions para Flow, com seis ações que ajudam em cadastros: validar CPF e CNPJ, formatar telefone, calcular dias úteis, gerar slug, dividir texto e ler um campo de um registro relacionado.
 
-🔹 **Validar CPF e CNPJ** com os dígitos verificadores
-🔹 **Formatar telefone** no padrão E.164 e com máscara
-🔹 **Calcular dias úteis**, descontando feriados cadastrados em Custom Metadata
-🔹 **Gerar slug**, sem acentos nem símbolos
-🔹 **Dividir texto** em lista, com separador literal
-🔹 **Ler campo de registro relacionado**, respeitando a permissão de quem roda o Flow
+As ações:
 
-Alguns pontos que eu quis demonstrar:
+- **Validar CPF ou CNPJ:** confere os dígitos verificadores, com ou sem máscara.
+- **Formatar telefone:** gera o formato E.164 e a máscara, e informa se é fixo ou celular.
+- **Calcular dias úteis:** desconta os feriados cadastrados em Custom Metadata.
+- **Gerar slug:** remove acentos e símbolos.
+- **Dividir texto:** divide por um separador literal, sem regex.
+- **Ler campo relacionado:** lê um campo pelo caminho de relacionamento, como `Account.Industry`.
 
-✔️ Todas as ações recebem listas, para funcionar em lote, e não um registro por vez.
-✔️ Os testes medem o número de consultas com `Limits.getQueries()`, em lotes de 200 registros.
-✔️ Erros de entrada viram uma resposta com mensagem, e não uma exceção que quebra o Flow.
-✔️ Documentação para administradores, em português, separada da documentação técnica.
+Cada ação recebe uma lista, então funciona com vários registros do Flow de uma vez. Um erro de entrada volta como resposta com mensagem, sem quebrar o Flow.
 
-Também sou transparente sobre os números: a cobertura de cada ação está documentada, e três delas ainda ficam abaixo da meta de 90%.
+Os testes incluem lotes de 200 registros. A ação de campo relacionado tem um teste que confere o número de consultas.
+
+A cobertura não atingiu a meta de 90% em todas as classes: três ações ficam entre 78% e 85%. Os números por classe estão no README.
 
 Código e documentação: https://github.com/JoaoGuilherme777/invocable-actions-library
 
-#Salesforce #Flow #Apex #SalesforceDeveloper #LWC
+#Salesforce #Flow #Apex #SalesforceDeveloper
