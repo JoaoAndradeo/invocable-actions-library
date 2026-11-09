@@ -1,9 +1,8 @@
 /**
- * Ação de Flow: lê um campo de um registro relacionado, sem gerar erro se ele não existir.
+ * Ação de Flow: lê um campo de um registro relacionado, sem erro quando o registro não existe.
  *
- * Bulkificação: as linhas são agrupadas por (tipo do registro + caminho do campo).
- * Cada grupo gera uma única consulta, então 200 linhas do mesmo tipo custam 1 SOQL.
- * A ordem das respostas é a mesma ordem das requisições.
+ * As linhas são agrupadas por tipo de registro e caminho do campo. Cada grupo faz uma consulta,
+ * então 200 linhas do mesmo tipo custam uma consulta. A ordem das respostas é a das requisições.
  */
 public inherited sharing class ReadRelatedFieldAction {
 
@@ -18,49 +17,52 @@ public inherited sharing class ReadRelatedFieldAction {
             return responses;
         }
 
-        // Placeholder para manter a ordem; cada posição é preenchida abaixo.
-        for (Integer i = 0; i < requests.size(); i++) {
-            responses.add(nullEntryResponse());
-        }
-
-        Map<String, List<Integer>> indexesByGroup = new Map<String, List<Integer>>();
+        Map<Integer, Response> responseByRow = new Map<Integer, Response>();
+        Map<String, List<Integer>> rowsByGroup = new Map<String, List<Integer>>();
         Map<String, Schema.SObjectType> typeByGroup = new Map<String, Schema.SObjectType>();
         Map<String, String> pathByGroup = new Map<String, String>();
 
         for (Integer i = 0; i < requests.size(); i++) {
             Request request = requests[i];
             if (request == null || request.recordId == null) {
+                responseByRow.put(i, nullEntryResponse());
                 continue;
             }
-            Schema.SObjectType recordType = request.recordId.getSObjectType();
+
             String path = String.isBlank(request.fieldPath) ? '' : request.fieldPath.trim();
+            Schema.SObjectType recordType = request.recordId.getSObjectType();
             String groupKey = recordType.getDescribe().getName() + '|' + path.toLowerCase();
 
-            if (!indexesByGroup.containsKey(groupKey)) {
-                indexesByGroup.put(groupKey, new List<Integer>());
+            if (!rowsByGroup.containsKey(groupKey)) {
+                rowsByGroup.put(groupKey, new List<Integer>());
                 typeByGroup.put(groupKey, recordType);
                 pathByGroup.put(groupKey, path);
             }
-            indexesByGroup.get(groupKey).add(i);
+            rowsByGroup.get(groupKey).add(i);
         }
 
-        for (String groupKey : indexesByGroup.keySet()) {
-            List<Integer> indexes = indexesByGroup.get(groupKey);
-            List<Id> recordIds = new List<Id>();
-            for (Integer index : indexes) {
-                recordIds.add(requests[index].recordId);
-            }
-            List<RelatedFieldReader.Result> results;
-            try {
-                results = RelatedFieldReader.readAll(typeByGroup.get(groupKey), pathByGroup.get(groupKey), recordIds);
-            } catch (Exception e) {
-                System.debug(LoggingLevel.ERROR, 'ReadRelatedFieldAction: ' + e.getMessage());
-                results = errorResults(recordIds.size());
+        for (String groupKey : rowsByGroup.keySet()) {
+            List<Integer> rows = rowsByGroup.get(groupKey);
+            List<Id> ids = new List<Id>();
+            for (Integer row : rows) {
+                ids.add(requests[row].recordId);
             }
 
-            for (Integer j = 0; j < indexes.size(); j++) {
-                responses[indexes[j]] = toResponse(results[j]);
+            List<RelatedFieldReader.Result> results;
+            try {
+                results = RelatedFieldReader.readAll(typeByGroup.get(groupKey), pathByGroup.get(groupKey), ids);
+            } catch (Exception e) {
+                System.debug(LoggingLevel.ERROR, 'ReadRelatedFieldAction: ' + e.getMessage());
+                results = errorResults(ids.size());
             }
+
+            for (Integer j = 0; j < rows.size(); j++) {
+                responseByRow.put(rows[j], toResponse(results[j]));
+            }
+        }
+
+        for (Integer i = 0; i < requests.size(); i++) {
+            responses.add(responseByRow.get(i));
         }
         return responses;
     }

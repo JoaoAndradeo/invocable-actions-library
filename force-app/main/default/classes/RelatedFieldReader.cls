@@ -1,171 +1,136 @@
 /**
- * Lê um campo de um registro relacionado (ex.: Contact -> Account.Industry) de forma segura.
+ * Lê um campo de um registro relacionado, por exemplo Account.Industry a partir de um Contact.
  *
- * Segurança:
- *  - O caminho do campo é validado contra o describe do Salesforce (objeto, relacionamento,
- *    campo existem e são acessíveis) antes de montar qualquer SOQL. Só identificadores
- *    canônicos do schema entram na query; o texto digitado pelo admin nunca é concatenado cru.
- *  - A consulta usa WITH USER_MODE, então respeita FLS e compartilhamento do usuário atual.
- *
- * Desempenho:
- *  - readAll faz UMA consulta por tipo de objeto para todos os IDs recebidos (WHERE Id IN :ids),
- *    nunca uma consulta por registro.
- *
- * Erros: nada aqui lança exceção para o Flow. Caminho inválido e registro ausente viram
- * Result com isSuccess = false ou found = false, com mensagem em português.
+ * O caminho é checado contra o describe antes de montar a consulta, então só nomes do
+ * schema entram no SOQL. A leitura usa WITH USER_MODE, respeitando FLS e compartilhamento.
+ * Todos os IDs são lidos com uma única consulta.
  */
-@SuppressWarnings('PMD.ApexSOQLInjection')
 public with sharing class RelatedFieldReader {
 
     public static final Integer MAX_PATH_DEPTH = 5;
 
     public class Result {
-        public Boolean isSuccess { get; private set; }
-        public Boolean found { get; private set; }
-        public String value { get; private set; }
-        public String message { get; private set; }
+        public Boolean isSuccess;
+        public Boolean found;
+        public String value;
+        public String message;
 
-        private Result(Boolean isSuccess, Boolean found, String value, String message) {
+        public Result(Boolean isSuccess, String message) {
+            this(isSuccess, false, null, message);
+        }
+
+        public Result(Boolean isSuccess, Boolean found, String value, String message) {
             this.isSuccess = isSuccess;
             this.found = found;
             this.value = value;
             this.message = message;
         }
-
-        public Result(Boolean isSuccess, String message) {
-            this(isSuccess, false, null, message);
-        }
     }
 
-    /** Caminho validado e pronto para uso em SOQL. */
-    private class ResolvedPath {
-        Boolean isValid;
-        String message;
-        String rootObjectName;
-        List<String> relationshipNames = new List<String>();
-        String leafFieldName;
-
-        String soqlField() {
-            List<String> parts = new List<String>(relationshipNames);
-            parts.add(leafFieldName);
-            return String.join(parts, '.');
-        }
-    }
-
-    /**
-     * Retorna um Result para cada ID, na mesma ordem. IDs nulos viram erro de entrada.
-     * Todos os IDs devem ser do mesmo tipo de objeto (o chamador agrupa por tipo).
-     */
+    /** Um Result por ID, na mesma ordem. Todos os IDs devem ser do mesmo tipo de objeto. */
     public static List<Result> readAll(Schema.SObjectType rootType, String fieldPath, List<Id> recordIds) {
         List<Result> results = new List<Result>();
         if (recordIds == null || recordIds.isEmpty()) {
             return results;
         }
 
-        ResolvedPath path = resolve(rootType, fieldPath);
-        Map<Id, Result> resultById = new Map<Id, Result>();
-        Set<Id> validIds = new Set<Id>();
+        Path path = null;
+        String pathError = null;
+        try {
+            path = parsePath(rootType, fieldPath);
+        } catch (IllegalArgumentException e) {
+            pathError = e.getMessage();
+        }
+
+        Set<Id> ids = new Set<Id>();
         for (Id recordId : recordIds) {
             if (recordId != null) {
-                validIds.add(recordId);
+                ids.add(recordId);
             }
         }
-
-        if (!path.isValid) {
-            for (Id recordId : validIds) {
-                resultById.put(recordId, new Result(false, path.message));
-            }
-        } else if (!validIds.isEmpty()) {
-            fillResults(path, validIds, resultById);
-        }
+        Map<Id, SObject> rowsById = (path == null) ? new Map<Id, SObject>() : queryRows(path, ids);
 
         for (Id recordId : recordIds) {
-            results.add(recordId == null ? new Result(false, 'Informe o registro de origem.') : resultById.get(recordId));
+            if (recordId == null) {
+                results.add(new Result(false, 'Informe o registro de origem.'));
+            } else if (pathError != null) {
+                results.add(new Result(false, pathError));
+            } else if (!rowsById.containsKey(recordId)) {
+                results.add(new Result(true, 'Registro não encontrado ou sem acesso.'));
+            } else {
+                results.add(readValue(rowsById.get(recordId), path));
+            }
         }
         return results;
     }
 
-    private static void fillResults(ResolvedPath path, Set<Id> ids, Map<Id, Result> resultById) {
-        String soql = 'SELECT Id, ' + path.soqlField() + ' FROM ' + path.rootObjectName
-            + ' WHERE Id IN :ids WITH USER_MODE';
-        Map<Id, SObject> rowById = new Map<Id, SObject>(Database.query(soql));
-
-        for (Id recordId : ids) {
-            if (!rowById.containsKey(recordId)) {
-                resultById.put(recordId, new Result(true, 'Registro não encontrado ou sem acesso.'));
-                continue;
-            }
-            resultById.put(recordId, extractValue(rowById.get(recordId), path));
+    private static Map<Id, SObject> queryRows(Path path, Set<Id> ids) {
+        if (ids.isEmpty()) {
+            return new Map<Id, SObject>();
         }
+        String soql = 'SELECT Id, ' + path.soqlField() + ' FROM ' + path.rootName
+            + ' WHERE Id IN :ids WITH USER_MODE';
+        return new Map<Id, SObject>(Database.query(soql));
     }
 
-    private static Result extractValue(SObject row, ResolvedPath path) {
+    private static Result readValue(SObject row, Path path) {
         SObject current = row;
-        for (String relationshipName : path.relationshipNames) {
-            current = current.getSObject(relationshipName);
+        for (String relationship : path.relationships) {
+            current = current.getSObject(relationship);
             if (current == null) {
                 return new Result(true, 'Registro relacionado vazio.');
             }
         }
 
-        Object raw = current.get(path.leafFieldName);
+        Object raw = current.get(path.leafField);
         if (raw == null) {
             return new Result(true, 'Campo sem valor.');
         }
         return new Result(true, true, String.valueOf(raw), 'Valor encontrado.');
     }
 
-    @TestVisible
-    private static ResolvedPath resolve(Schema.SObjectType rootType, String fieldPath) {
-        ResolvedPath resolved = new ResolvedPath();
-        resolved.isValid = false;
-
+    /** Valida o caminho e lança IllegalArgumentException com a mensagem para o usuário. */
+    private static Path parsePath(Schema.SObjectType rootType, String fieldPath) {
         if (rootType == null) {
-            resolved.message = 'Objeto de origem inválido.';
-            return resolved;
+            throw new IllegalArgumentException('Objeto de origem inválido.');
         }
-        String cleanPath = fieldPath == null ? '' : fieldPath.trim();
+        String cleanPath = (fieldPath == null) ? '' : fieldPath.trim();
         if (String.isBlank(cleanPath)) {
-            resolved.message = 'Informe o caminho do campo, por exemplo Account.Industry.';
-            return resolved;
+            throw new IllegalArgumentException('Informe o caminho do campo, por exemplo Account.Industry.');
         }
 
         List<String> segments = cleanPath.split('\\.');
         if (segments.size() > MAX_PATH_DEPTH) {
-            resolved.message = 'Caminho muito longo: o máximo são ' + MAX_PATH_DEPTH + ' níveis.';
-            return resolved;
+            throw new IllegalArgumentException('Caminho muito longo: o máximo são ' + MAX_PATH_DEPTH + ' níveis.');
         }
 
-        Schema.SObjectType currentType = rootType;
+        Path path = new Path();
+        path.rootName = rootType.getDescribe().getName();
+        Schema.SObjectType current = rootType;
+
         for (Integer i = 0; i < segments.size() - 1; i++) {
             String segment = segments[i].trim();
-            Schema.DescribeFieldResult relationship = findRelationship(currentType, segment);
+            Schema.DescribeFieldResult relationship = findRelationship(current, segment);
             if (relationship == null || !relationship.isAccessible()) {
-                resolved.message = 'Relacionamento "' + segment + '" não existe em '
-                    + currentType.getDescribe().getName() + ' ou não está acessível.';
-                return resolved;
+                throw new IllegalArgumentException('Relacionamento "' + segment + '" não existe em '
+                    + current.getDescribe().getName() + ' ou não está acessível.');
             }
             List<Schema.SObjectType> targets = relationship.getReferenceTo();
             if (targets.size() != 1) {
-                resolved.message = 'Relacionamento "' + segment + '" é polimórfico e não é suportado.';
-                return resolved;
+                throw new IllegalArgumentException('Relacionamento "' + segment + '" é polimórfico e não é suportado.');
             }
-            resolved.relationshipNames.add(relationship.getRelationshipName());
-            currentType = targets[0];
+            path.relationships.add(relationship.getRelationshipName());
+            current = targets[0];
         }
 
         String leafName = segments[segments.size() - 1].trim();
-        Schema.SObjectField leaf = currentType.getDescribe().fields.getMap().get(leafName.toLowerCase());
+        Schema.SObjectField leaf = current.getDescribe().fields.getMap().get(leafName.toLowerCase());
         if (leaf == null || !leaf.getDescribe().isAccessible()) {
-            resolved.message = 'Campo "' + leafName + '" não existe em ' + currentType.getDescribe().getName()
-                + ' ou não está acessível.';
-            return resolved;
+            throw new IllegalArgumentException('Campo "' + leafName + '" não existe em '
+                + current.getDescribe().getName() + ' ou não está acessível.');
         }
-
-        resolved.isValid = true;
-        resolved.rootObjectName = rootType.getDescribe().getName();
-        resolved.leafFieldName = leaf.getDescribe().getName();
-        return resolved;
+        path.leafField = leaf.getDescribe().getName();
+        return path;
     }
 
     private static Schema.DescribeFieldResult findRelationship(Schema.SObjectType objectType, String relationshipName) {
@@ -178,5 +143,18 @@ public with sharing class RelatedFieldReader {
             }
         }
         return null;
+    }
+
+    /** Caminho já validado: objeto raiz, relacionamentos na ordem e campo final. */
+    private class Path {
+        String rootName;
+        List<String> relationships = new List<String>();
+        String leafField;
+
+        String soqlField() {
+            List<String> parts = new List<String>(relationships);
+            parts.add(leafField);
+            return String.join(parts, '.');
+        }
     }
 }
