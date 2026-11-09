@@ -22,6 +22,6 @@ Alguns pontos que eu quis demonstrar:
 
 Também sou honesto sobre o que ainda falta: três ações estão com cobertura abaixo da meta de 90%, e eu vou documentar isso e fechar essa lacuna.
 
-Código e documentação: [link do repositório]
+Código e documentação: https://github.com/JoaoGuilherme777/invocable-actions-library
 
 #Salesforce #Flow #Apex #SalesforceDeveloper #LWC
