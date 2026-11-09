@@ -33,7 +33,7 @@ Cada ação é uma classe com `@InvocableMethod` que recebe uma lista de requisi
 
 ## 5. Cobertura
 
-A meta do projeto é acima de 90% em todas as classes. **Essa meta ainda não foi atingida** em três ações: `GenerateSlugAction` (78%), `FormatPhoneAction` (83%) e `SplitStringAction` (85%). Os caminhos não cobertos são os de erro de entrada e de borda de texto. O próximo passo é adicionar testes para esses caminhos.
+A meta do projeto é acima de 90% em todas as classes. **Essa meta ainda não foi atingida** em três ações: `GenerateSlugAction` (78%), `FormatPhoneAction` (83%) e `SplitStringAction` (85%). Os caminhos não cobertos são os de erro de entrada e de borda de texto. Essa lacuna está registrada e não foi tratada nesta versão.
 
 ## 6. Lições registradas durante o desenvolvimento
 

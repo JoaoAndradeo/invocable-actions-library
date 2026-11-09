@@ -20,7 +20,7 @@ Alguns pontos que eu quis demonstrar:
 ✔️ Erros de entrada viram uma resposta com mensagem, e não uma exceção que quebra o Flow.
 ✔️ Documentação para administradores, em português, separada da documentação técnica.
 
-Também sou honesto sobre o que ainda falta: três ações estão com cobertura abaixo da meta de 90%, e eu vou documentar isso e fechar essa lacuna.
+Também sou transparente sobre os números: a cobertura de cada ação está documentada, e três delas ainda ficam abaixo da meta de 90%.
 
 Código e documentação: https://github.com/JoaoGuilherme777/invocable-actions-library
 
