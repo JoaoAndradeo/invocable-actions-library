@@ -17,6 +17,16 @@ Para o uso no Flow, veja o [guia do administrador](docs/guia-admin.md). Para o c
 
 Todas as ações recebem listas, então funcionam com vários registros de uma vez. Erros de entrada voltam como resposta com mensagem, sem quebrar o Flow.
 
+## Por que importa
+
+Administradores precisam das mesmas validações e transformações em vários Flows: CPF, telefone, dias úteis, slug. Sem uma biblioteca, cada uma vira código novo ou lógica copiada em cada Flow, e a correção precisa ser feita em todos.
+
+## Ganho
+
+- O administrador resolve sem código: arrasta a ação para o Flow.
+- A regra fica em um lugar só. Por exemplo, os feriados vêm de `Feriado__mdt`, e uma correção vale para todos os Flows.
+- As ações aceitam listas, então um Flow processa vários registros sem fazer uma chamada por registro.
+
 ## Instalação
 
 Pré-requisitos: Salesforce CLI e uma Developer Edition.
