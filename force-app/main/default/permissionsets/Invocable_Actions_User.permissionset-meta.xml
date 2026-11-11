@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <applicationVisibilities>
+        <application>Invocable_Actions_App</application>
+        <visible>true</visible>
+    </applicationVisibilities>
     <classAccesses>
         <apexClass>BusinessDaysAction</apexClass>
         <enabled>true</enabled>
@@ -31,4 +35,8 @@
     </flowAccesses>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Invocable Actions User</label>
+    <tabSettings>
+        <tab>Invocable_Actions_Demo</tab>
+        <visibility>Visible</visibility>
+    </tabSettings>
 </PermissionSet>

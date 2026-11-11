@@ -1,0 +1,11 @@
+<template>
+    <lightning-card title="Validar CPF ou CNPJ" icon-name="standard:document">
+        <div class="slds-p-horizontal_medium slds-p-bottom_medium">
+            <p class="slds-text-body_small slds-text-color_weak slds-m-bottom_small introducao">
+                Demonstração da ação <strong>Validar CPF ou CNPJ</strong> da biblioteca, usada dentro de um Screen Flow.
+                A validação confere os dígitos verificadores, com ou sem máscara.
+            </p>
+            <lightning-flow flow-api-name={flowApiName} onstatuschange={handleStatusChange}></lightning-flow>
+        </div>
+    </lightning-card>
+</template>

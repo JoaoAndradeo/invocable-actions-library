@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Validar</name>
+        <label>Validar CPF ou CNPJ</label>
+        <locationX>176</locationX>
+        <locationY>278</locationY>
+        <actionName>ValidateDocumentAction</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Mostrar_Resultado</targetReference>
+        </connector>
+        <flowTransactionModel>CurrentTransaction</flowTransactionModel>
+        <inputParameters>
+            <name>document</name>
+            <value>
+                <elementReference>Documento</elementReference>
+            </value>
+        </inputParameters>
+        <nameSegment>ValidateDocumentAction</nameSegment>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <apiVersion>67.0</apiVersion>
+    <description>Demonstração da ação Validar CPF ou CNPJ em um Screen Flow.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>TextoResultado</name>
+        <dataType>String</dataType>
+        <expression>IF({!Validar.isValid},
+&apos;Documento válido.&apos;,
+&apos;Documento inválido.&apos;)</expression>
+    </formulas>
+    <interviewLabel>Demonstração: validar CPF ou CNPJ {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Demonstração: validar CPF ou CNPJ</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <screens>
+        <name>Informar_Documento</name>
+        <label>Informe o documento</label>
+        <locationX>176</locationX>
+        <locationY>158</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector>
+            <targetReference>Validar</targetReference>
+        </connector>
+        <fields>
+            <name>Explicacao</name>
+            <fieldText>&lt;p&gt;Esta tela usa a ação &lt;b&gt;Validar CPF ou CNPJ&lt;/b&gt; da biblioteca de Invocable Actions. A validação confere os dígitos verificadores, com ou sem máscara.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>Documento</name>
+            <dataType>String</dataType>
+            <fieldText>CPF ou CNPJ</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <screens>
+        <name>Mostrar_Resultado</name>
+        <label>Resultado da validação</label>
+        <locationX>176</locationX>
+        <locationY>398</locationY>
+        <allowBack>true</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>Resultado</name>
+            <fieldText>&lt;p&gt;&lt;b&gt;{!TextoResultado}&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Tipo: {!Validar.documentType}&lt;/p&gt;&lt;p&gt;Número normalizado: {!Validar.normalizedNumber}&lt;/p&gt;&lt;p&gt;Mensagem da ação: {!Validar.message}&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Informar_Documento</targetReference>
+        </connector>
+    </start>
+    <status>Active</status>
+</Flow>
